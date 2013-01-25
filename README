@@ -1,0 +1,17 @@
+This repository holds the packaging information for ResInsight.
+
+Usage:
+
+1) Clone this repository, to some folder, say ~/ResInsight-packaging
+2) Put the original tar ball in ~/. An easy way to create a tarball
+   is to use the archive function of git. Go to your clone of the
+   ResInsight repository and type
+   git archive --prefix resinsight-<version>/ <branch to archive> -o ~/resinsight_<version>.orig.tar.gz
+3) Then run pdebuild as you would for the in-tree copy
+
+Since this packaging involves some patchery, it will only be synced with
+OPM coordinated releases. If you are unable to update it yourself, and
+really need a new version packaged, send me an email.
+
+Arne Morten Kvarving <arne.morten.kvarving@sintef.no>
+January 2031

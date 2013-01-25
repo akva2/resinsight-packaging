@@ -1,0 +1,209 @@
+Description: This adds a linux system install option to the build system
+ - link against system libraries
+ - install files to the expected system paths
+ resinsight (0.9.0-1) unstable; urgency=low
+ .
+   * Initial release
+Author: Arne Morten Kvarving <arne.morten.kvarving@sintef.no>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: http://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: <YYYY-MM-DD>
+
+--- resinsight-0.9.0.orig/CMakeLists.txt
++++ resinsight-0.9.0/CMakeLists.txt
+@@ -4,6 +4,16 @@ project (ResInsight)
+ 
+ set (VIZ_MODULES_FOLDER_NAME VisualizationModules)
+ 
++# Extra modules
++list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
++
++# include special
++if (CMAKE_VERSION VERSION_LESS "2.8.7")
++	message (STATUS "Enabling backward compatibility modules for CMake ${CMAKE_VERSION}")
++	list (APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules/compat-2.8.7")
++endif (CMAKE_VERSION VERSION_LESS "2.8.7")
++
++option(LINUX_SYSTEM_INSTALL "Install to linux system" OFF)
+ 
+ # Setup the main platform defines
+ #-----------------------------------------------------
+@@ -37,6 +47,13 @@ include (ResInsightVersion.cmake)
+ ################################################################################
+ # ERT
+ ################################################################################
++if(LINUX_SYSTEM_INSTALL)
++  find_package(ERT REQUIRED)
++  include_directories(${ERT_INCLUDE_DIR}/ert/ecl
++                      ${ERT_INCLUDE_DIR}/ert/geometry
++                      ${ERT_INCLUDE_DIR}/ert/ecl_well
++                      ${ERT_INCLUDE_DIR}/ert/util)
++else()
+ add_subdirectory(ThirdParty/Ert/devel)
+ 
+ include_directories(
+@@ -46,7 +63,7 @@ include_directories(
+     ${CMAKE_SOURCE_DIR}/ThirdParty/Ert/devel/libwell/src
+     ${CMAKE_BINARY_DIR}/ThirdParty/Ert/devel/libert_util/src
+ )
+-
++endif()
+ 
+ ################################################################################
+ # Qt
+@@ -110,7 +127,6 @@ endif()
+ 
+ set (RESINSIGHT_FINAL_INSTALL_PATH "/usr/${RESINSIGHT_FINAL_NAME}")
+ 
+-set (CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/Install/)
+ #set (CMAKE_INSTALL_PREFIX ${RESINSIGHT_FINAL_INSTALL_PATH})
+ 
+ ################################################################################
+--- resinsight-0.9.0.orig/ApplicationCode/CMakeLists.txt
++++ resinsight-0.9.0/ApplicationCode/CMakeLists.txt
+@@ -203,6 +203,24 @@ add_executable(ResInsight
+ )
+ 
+ 
++if (LINUX_SYSTEM_INSTALL)
++set( LINK_LIBRARIES
++    cafPdmCvf
++    cafUserInterface
++    cafProjectDataModel
++    cafViewer
++    cafAnimControl
++    CommonCode
++    LibGuiQt
++    LibViewing
++    LibRender
++    LibGeometry
++    LibCore
++    ${ERT_LIBRARIES}
++    ${OPENGL_LIBRARIES}
++    ${QT_LIBRARIES}
++)
++else()
+ set( LINK_LIBRARIES
+     cafPdmCvf
+     cafUserInterface
+@@ -225,6 +243,7 @@ set( LINK_LIBRARIES
+     ${QT_LIBRARIES}
+ )
+ set( EXTERNAL_LINK_LIBRARIES ${ERT_LIBRARY_LIST} )
++endif()
+ 
+ # According to ivarun this is needed on OpenSuse, and Fedora. See: https://github.com/OPM/ResInsight/pull/7
+ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+@@ -254,6 +273,12 @@ endif(MSVC)
+ # Install 
+ #############################################################################
+ 
++if (LINUX_SYSTEM_INSTALL)
++  install(TARGETS ResInsight DESTINATION bin)
++  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Adm/LicenseInformation.txt
++                ${CMAKE_CURRENT_SOURCE_DIR}/Adm/gplLicense.txt
++          DESTINATION share/doc/resinsight)
++else(LINUX_SYSTEM_INSTALL)
+ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+     set_target_properties(ResInsight PROPERTIES INSTALL_RPATH "${RESINSIGHT_FINAL_INSTALL_PATH};.")
+ 
+@@ -289,4 +314,4 @@ install(FILES ${RESINSIGHT_FILES} DESTIN
+ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+   install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resinsight DESTINATION ${RESINSIGHT_FINAL_NAME} PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE )
+ endif()
+-
++endif()
+--- resinsight-0.9.0.orig/ApplicationCode/ReservoirDataModel/ReservoirDataModel_UnitTests/CMakeLists.txt
++++ resinsight-0.9.0/ApplicationCode/ReservoirDataModel/ReservoirDataModel_UnitTests/CMakeLists.txt
+@@ -28,6 +28,18 @@ file( GLOB CPP_SOURCES ${CMAKE_CURRENT_S
+ file( GLOB UNIT_TEST_CPP_SOURCES *.cpp )
+ 
+ 
++if (LINUX_SYSTEM_INSTALL)
++set( LINK_LIBRARIES
++    CommonCode
++
++    LibViewing
++    LibRender
++    LibGeometry
++    LibCore
++    ${ERT_LIBRARIES}
++    ${QT_LIBRARIES}
++)
++else()
+ set( LINK_LIBRARIES
+     CommonCode
+ 
+@@ -42,6 +54,7 @@ set( LINK_LIBRARIES
+ 
+     ${QT_LIBRARIES}
+ )
++endif()
+ 
+ 
+ add_executable( ${ProjectName}
+--- resinsight-0.9.0.orig/ApplicationCode/FileInterface/FileInterface_UnitTests/CMakeLists.txt
++++ resinsight-0.9.0/ApplicationCode/FileInterface/FileInterface_UnitTests/CMakeLists.txt
+@@ -58,6 +58,19 @@ set( UNIT_TEST_CPP_SOURCES
+ )
+ 
+ 
++if (LINUX_SYSTEM_INSTALL)
++set( LINK_LIBRARIES
++    CommonCode
++
++    LibViewing
++    LibRender
++    LibGeometry
++    LibCore
++
++    ${ERT_LIBRARIES}
++    ${QT_LIBRARIES}
++)
++else()
+ set( LINK_LIBRARIES
+     CommonCode
+ 
+@@ -73,6 +86,7 @@ set( LINK_LIBRARIES
+ 
+     ${QT_LIBRARIES}
+ )
++endif()
+ 
+ 
+ 
+--- resinsight-0.9.0.orig/OctavePlugin/CMakeLists.txt
++++ resinsight-0.9.0/OctavePlugin/CMakeLists.txt
+@@ -7,9 +7,13 @@ set(CPP_SOURCES
+   riGetMainGridDimensions.cpp
+ )
+ 
++if(LINUX_SYSTEM_INSTALL)
++  find_package(Octave REQUIRED)
++else()
+ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+     set(RPATH_COMMAND "-Wl,-rpath=${RESINSIGHT_FINAL_INSTALL_PATH} -Wl,-rpath=.")
+ endif()
++endif()
+ 
+ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+     set (QT_LIBRARY_POSTFIX 4)
+@@ -103,4 +107,8 @@ else()
+   )
+ endif()
+ 
++if(LINUX_SYSTEM_INSTALL)
++  install(FILES ${OCTAVE_BINARY_OCT_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/${OCTAVE_OCT_PATH})
++else()
+ install(FILES ${OCTAVE_BINARY_OCT_FILES} DESTINATION ${RESINSIGHT_FINAL_NAME})
++endif()
